@@ -14,32 +14,31 @@ mixin template Builder() {
     //todo introduce class support
     static assert(is(Self == struct));
 
-    alias ____ToString___fieldNames = FieldNameTuple!Self;
-    alias ____ToString___fieldTypes = Fields!Self;
-    alias ____ToString___singularized = getSymbolsByUDA!(Self, Singular);
+    alias ____Builder___fieldNames = FieldNameTuple!Self;
+    alias ____Builder___fieldTypes = Fields!Self;
+    alias ____Builder___singularized = getSymbolsByUDA!(Self, Singular);
 
     struct BuilderImpl {
         pragma(msg, "Builder for ", Self);
-        pragma(msg, ____ToString___fieldNames);
-        mixin template HandleField(int handleField___i){
-            static if (__traits(compiles, ____ToString___fieldNames.length) && handleField___i < ____ToString___fieldNames.length){
+        pragma(msg, ____Builder___fieldNames);
+        mixin template ___Builder___HandleField(int ___i){
+            static if (__traits(compiles, ____Builder___fieldNames.length) && ___i < ____Builder___fieldNames.length){
                 mixin(
-                    "private "~fullyQualifiedName!(____ToString___fieldTypes[handleField___i])~
-                    " _dombok_builder_"~____ToString___fieldNames[handleField___i]~
-                    " = "~fullyQualifiedName!(Self)~"()."~____ToString___fieldNames[handleField___i]~";"
+                    "private "~fullyQualifiedName!(____Builder___fieldTypes[___i])~
+                    " _dombok_builder_"~____Builder___fieldNames[___i]~";"
                 );
-                mixin(fullyQualifiedName!(BuilderImpl)~" "~____ToString___fieldNames[handleField___i]~"("~fullyQualifiedName!(____ToString___fieldTypes[handleField___i])~" val){ this._dombok_builder_"~____ToString___fieldNames[handleField___i]~" = val; return this; }");
-                mixin HandleField!(handleField___i+1);
+                mixin(fullyQualifiedName!(BuilderImpl)~" "~____Builder___fieldNames[___i]~"("~fullyQualifiedName!(____Builder___fieldTypes[___i])~" val){ this._dombok_builder_"~____Builder___fieldNames[___i]~" = val; return this; }");
+                mixin ___Builder___HandleField!(___i+1);
             }
         }
 
-        mixin HandleField!0;
+        mixin ___Builder___HandleField!0;
 
-        mixin template Handle____ToString___singularized(int handle____ToString___singularized___i){
-            static if (__traits(compiles, ____ToString___singularized.length) && handle____ToString___singularized___i < ____ToString___singularized.length) {
-                enum fieldName = ____ToString___singularized[handle____ToString___singularized___i].stringof;
-                alias fieldType = typeof(____ToString___singularized[handle____ToString___singularized___i]);
-                alias attr = getUDAs!(____ToString___singularized[handle____ToString___singularized___i], Singular);
+        mixin template ___Builder___HandleSingular(int ___j){
+            static if (__traits(compiles, ____Builder___singularized.length) && ___j < ____Builder___singularized.length) {
+                enum fieldName = ____Builder___singularized[___j].stringof;
+                alias fieldType = typeof(____Builder___singularized[___j]);
+                alias attr = getUDAs!(____Builder___singularized[___j], Singular);
                 static assert(attr.length == 1);
                 static if (!is(attr[0]: Singular))
                     enum declaredName = attr[0].singularName;
@@ -57,33 +56,47 @@ mixin template Builder() {
                     enum singularName = declaredName;
                 //fixme isSomeString!... instead of is(...: string)
                 static if (!is(fieldType: string) && isArray!(fieldType)){
-                    mixin(fullyQualifiedName!BuilderImpl~" "~singularName~"("~fullyQualifiedName!(ForeachType!fieldType)~" val){ this._dombok_builder_"~fieldName~" ~= val; return this; }");
+                    mixin(
+                        fullyQualifiedName!BuilderImpl~" "~singularName~"("~fullyQualifiedName!(ForeachType!fieldType)~" val){ "~
+                            "this._dombok_builder_"~fieldName~" ~= val; "~
+                            "return this; "~
+                        "}"
+                    );
                 } else static if (isAssociativeArray!(fieldType)) {
-                    mixin(fullyQualifiedName!BuilderImpl~" "~singularName~"("~fullyQualifiedName!(KeyType!fieldType)~" key, "~fullyQualifiedName!(ValueType!fieldType)~" val){ this._dombok_builder_"~fieldName~"[key] = val; return this; }");
+                    mixin(
+                        fullyQualifiedName!BuilderImpl~" "~singularName~"("~fullyQualifiedName!(KeyType!fieldType)~" key, "~fullyQualifiedName!(ValueType!fieldType)~" val){ "~
+                            "this._dombok_builder_"~fieldName~"[key] = val; "~
+                            "return this; "~
+                        "}"
+                    );
                 } else {
                     static assert(false);
                 }
-                mixin Handle____ToString___singularized!(handle____ToString___singularized___i+1);
+                mixin ___Builder___HandleSingular!(___j+1);
             }
         }
 
-        mixin Handle____ToString___singularized!0;
+        mixin ___Builder___HandleSingular!0;
+
+        this(Self prototype){
+            foreach (fieldName; ____Builder___fieldNames)
+                mixin("this._dombok_builder_"~fieldName~" = prototype."~fieldName~";");
+        }
 
         Self build(){
             Self result = Self();
-            foreach (fieldName; ____ToString___fieldNames)
+            foreach (fieldName; ____Builder___fieldNames)
                 mixin("result."~fieldName~" = this._dombok_builder_"~fieldName~";");
             return result;
-            //static if (__traits(compiles, ____ToString___fieldNames.length) && ____ToString___fieldNames.length > 0)
-            //    enum constructorArgs = join(map!((string x) => "_dombok_builder_"~x)([____ToString___fieldNames]), ", ");
-            //else
-            //    enum constructorArgs = "";
-            //mixin("return "~fullyQualifiedName!Self~"("~constructorArgs~");");
         }
     }
 
+    BuilderImpl toBuilder(){
+        return BuilderImpl(this);
+    }
+
     static BuilderImpl builder(){
-        return BuilderImpl();
+        return Self().toBuilder();
     }
 }
 
@@ -107,15 +120,27 @@ version(unittest){
         @Singular
         string[bool] properties;
     }
+
+    struct C {
+        mixin Builder;
+
+        int a = 2;
+        string b = "foobar";
+    }
 }
 
 unittest {
     A a = A.builder().a(1).b("x").build();
     assert(a == A(1, "x"));
 
+    assert(a.toBuilder().b("z").build() == A(1, "z"));
+
     B b = B.builder().b("y").cs([2, 3]).build();
     assert(b == B(int.init, "y", [2, 3]));
 
     B b2 = B.builder().a(1).b("z").c(5).c(6).property(true, "yep").property(false, "nope").build();
     assert(b2 == B(1, "z", [5, 6], [true: "yep", false: "nope"]));
+
+    assert(C.builder().build() == C());
+    assert(C.builder().build() == C(2, "foobar"));
 }

@@ -1,4 +1,4 @@
-module dombok.proxy.impl;
+module dali.proxy.impl;
 
 import std.string;
 
@@ -41,14 +41,14 @@ template method(alias Scope, string methodName, ArgTypes...){
     alias returnType = ReturnType!impl;
 }
 
-import dombok.tostring.annotations;
+import dali.tostring.annotations;
 @(ToStringOptions.builder().fieldTypes(true).qualifiedFieldTypes(false).build())
 struct Arguments(alias Scope, string methodName, ArgTypes...){
     import std.meta: Alias;
     import std.traits: isArray, isAssociativeArray, fullyQualifiedName;
-    import dombok.tostring.mixins;
-    import dombok.builder.annotations;
-    import dombok.builder.mixins;
+    import dali.tostring.mixins;
+    import dali.builder.annotations;
+    import dali.builder.mixins;
 
     alias ____Proxy___targetMethod = method!(Scope, methodName, ArgTypes);
 

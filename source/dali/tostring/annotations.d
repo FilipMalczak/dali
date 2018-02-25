@@ -1,7 +1,7 @@
-module dombok.tostring.annotations;
+module dali.tostring.annotations;
 
 import std.traits;
-import dombok.builder.mixins;
+import dali.builder.mixins;
 
 struct ToStringOptions{
     bool qualifiedName = true;

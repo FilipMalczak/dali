@@ -1,8 +1,8 @@
 {
-	"name": "dombok",
+	"name": "dali",
 	"authors": [
-		"filip"
+		"filip.malczak@gmail.com"
 	],
-	"description": "A minimal D application.",
-	"license": "proprietary"
+	"description": "Dali - Lombok-inspired metaprogramming stuff that I'd love to see in DLang.",
+	"license": "Apache License"
 }

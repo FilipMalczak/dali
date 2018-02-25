@@ -1,4 +1,4 @@
-module dombok.builder.mixins;
+module dali.builder.mixins;
 
 mixin template Builder() {
     import std.traits;
@@ -7,7 +7,7 @@ mixin template Builder() {
     import std.string;
     import std.algorithm.iteration;
     import std.algorithm.searching;
-    import dombok.builder.annotations;
+    import dali.builder.annotations;
 
     alias Self = typeof(this);
 
@@ -25,9 +25,9 @@ mixin template Builder() {
             static if (__traits(compiles, ____Builder___fieldNames.length) && ___i < ____Builder___fieldNames.length){
                 mixin(
                     "private "~fullyQualifiedName!(____Builder___fieldTypes[___i])~
-                    " _dombok_builder_"~____Builder___fieldNames[___i]~";"
+                    " _dali_builder_"~____Builder___fieldNames[___i]~";"
                 );
-                mixin(fullyQualifiedName!(BuilderImpl)~" "~____Builder___fieldNames[___i]~"("~fullyQualifiedName!(____Builder___fieldTypes[___i])~" val){ this._dombok_builder_"~____Builder___fieldNames[___i]~" = val; return this; }");
+                mixin(fullyQualifiedName!(BuilderImpl)~" "~____Builder___fieldNames[___i]~"("~fullyQualifiedName!(____Builder___fieldTypes[___i])~" val){ this._dali_builder_"~____Builder___fieldNames[___i]~" = val; return this; }");
                 mixin ___Builder___HandleField!(___i+1);
             }
         }
@@ -54,18 +54,19 @@ mixin template Builder() {
                     }
                 } else
                     enum singularName = declaredName;
+                //todo support std.container
                 //fixme isSomeString!... instead of is(...: string)
                 static if (!is(fieldType: string) && isArray!(fieldType)){
                     mixin(
                         fullyQualifiedName!BuilderImpl~" "~singularName~"("~fullyQualifiedName!(ForeachType!fieldType)~" val){ "~
-                            "this._dombok_builder_"~fieldName~" ~= val; "~
+                            "this._dali_builder_"~fieldName~" ~= val; "~
                             "return this; "~
                         "}"
                     );
                 } else static if (isAssociativeArray!(fieldType)) {
                     mixin(
                         fullyQualifiedName!BuilderImpl~" "~singularName~"("~fullyQualifiedName!(KeyType!fieldType)~" key, "~fullyQualifiedName!(ValueType!fieldType)~" val){ "~
-                            "this._dombok_builder_"~fieldName~"[key] = val; "~
+                            "this._dali_builder_"~fieldName~"[key] = val; "~
                             "return this; "~
                         "}"
                     );
@@ -80,13 +81,13 @@ mixin template Builder() {
 
         this(Self prototype){
             foreach (fieldName; ____Builder___fieldNames)
-                mixin("this._dombok_builder_"~fieldName~" = prototype."~fieldName~";");
+                mixin("this._dali_builder_"~fieldName~" = prototype."~fieldName~";");
         }
 
         Self build(){
             Self result = Self();
             foreach (fieldName; ____Builder___fieldNames)
-                mixin("result."~fieldName~" = this._dombok_builder_"~fieldName~";");
+                mixin("result."~fieldName~" = this._dali_builder_"~fieldName~";");
             return result;
         }
     }
@@ -101,7 +102,7 @@ mixin template Builder() {
 }
 
 version(unittest){
-    import dombok.builder.annotations;
+    import dali.builder.annotations;
 
     struct A {
         mixin Builder;

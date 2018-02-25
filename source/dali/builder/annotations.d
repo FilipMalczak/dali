@@ -1,4 +1,4 @@
-module dombok.builder.annotations;
+module dali.builder.annotations;
 
 
 

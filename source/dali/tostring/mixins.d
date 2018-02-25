@@ -1,9 +1,9 @@
-module dombok.tostring.mixins;
+module dali.tostring.mixins;
 
 
 
 mixin template ToString() {
-    import dombok.tostring.annotations;
+    import dali.tostring.annotations;
 
     import std.traits;
     import std.meta;
@@ -61,7 +61,7 @@ mixin template ToString() {
 }
 
 version(unittest){
-    import dombok.tostring.annotations;
+    import dali.tostring.annotations;
 
     struct A {
         mixin ToString;
@@ -113,10 +113,10 @@ version(unittest){
 
 unittest {
     import std.conv;
-    assert(to!string(A(1, "b")) == "dombok.tostring.mixins.A(a=1, b=\"b\")");
-    assert(to!string(B(1)) == "dombok.tostring.mixins.B(x=2)");
-    assert(to!string(C(1, 2, 3)) == "dombok.tostring.mixins.C(a=1, c=3)");
-    assert(to!string(D()) == "dombok.tostring.mixins.D()");
+    assert(to!string(A(1, "b")) == "dali.tostring.mixins.A(a=1, b=\"b\")");
+    assert(to!string(B(1)) == "dali.tostring.mixins.B(x=2)");
+    assert(to!string(C(1, 2, 3)) == "dali.tostring.mixins.C(a=1, c=3)");
+    assert(to!string(D()) == "dali.tostring.mixins.D()");
     assert(to!string(E()) == "E()");
-    assert(to!string(F(A(5, "test"), D(), false)) == "F(a=dombok.tostring.mixins.A(a=5, b=\"test\"), d=dombok.tostring.mixins.D(), b=false)");
+    assert(to!string(F(A(5, "test"), D(), false)) == "F(a=dali.tostring.mixins.A(a=5, b=\"test\"), d=dali.tostring.mixins.D(), b=false)");
 }

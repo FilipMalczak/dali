@@ -11,18 +11,15 @@ mixin template ToString() {
 
     alias Self = typeof(this);
 
-    public string toString(){
+    private string ___impl_toString(){
         import std.conv: to;
         string result = "";
         alias allOptions = getUDAs!(Self, ToStringOptions);
         static assert (allOptions.length < 2);
-        pragma(msg, Self, " #toString");
         static if (allOptions.length == 1) {
             alias options = Alias!(allOptions[0]);
-            pragma(msg, "found ", options);
         } else {
             alias options = Alias!(ToStringOptions());
-            pragma(msg, "default ", options);
         }
         static if (options.qualifiedName)
             result ~= fullyQualifiedName!Self;
@@ -57,6 +54,14 @@ mixin template ToString() {
         result ~= join(fieldVals, options.fieldSeparator);
         result ~= options.rightBracket;
         return result;
+    }
+
+    static if (is(Self == class)) {
+        mixin("override string toString() { return ___impl_toString(); }");
+    } else static if (is(Self == struct)){
+        mixin("string toString() { return ___impl_toString(); }");
+    } else {
+        static assert(false);
     }
 }
 

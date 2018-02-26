@@ -11,14 +11,17 @@ Dali - Lombok-inspired metaprogramming stuff that I'd love to see in DLang.
 
 - `ToString` - mixin that provides customizable implementation of toString() method
 - `Builder` - mixin that provides lombok-style builders
+- `Copy` - mixin that provides shallow copy() method
 
 ### WIP
 
+- `Wither` - create copies of object with modified fields
 - `Proxy` - it is intended to provide wrapper type that can use method interceptors, 
     thus opening the way to observable objects and AOP.
 
 ### ToDo
 
+- `DeepCopy` - similiar to `Copy` but does full object tree traversal
 - `EqualsAndHashCode` - mixin similiar to Lombok-style annotation
 - integration with [poodinis](https://github.com/mbierlee/poodinis)
 - scavenge package scan from [ioc](https://github.com/FilipMalczak/ioc)

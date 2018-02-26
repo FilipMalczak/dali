@@ -19,8 +19,6 @@ mixin template Builder() {
     alias ____Builder___singularized = getSymbolsByUDA!(Self, Singular);
 
     struct BuilderImpl {
-        pragma(msg, "Builder for ", Self);
-        pragma(msg, ____Builder___fieldNames);
         mixin template ___Builder___HandleField(int ___i){
             static if (__traits(compiles, ____Builder___fieldNames.length) && ___i < ____Builder___fieldNames.length){
                 mixin(

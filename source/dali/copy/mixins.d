@@ -6,8 +6,8 @@ mixin template Copy() {
     alias Self = typeof(this);
 
     static if (is(Self == struct)) {
-        private CopyableStruct!Self ___copy_subtype = CopyableStruct!Self();
-        alias ___copy_subtype this;
+        private CopyableStruct!Self ___dali_Copy_supertype = CopyableStruct!Self();
+        alias ___dali_Copy_supertype this;
 
         Self copy(){
             //structs have value semantics and are kept on stack - assigning to a new var effectively creates a copy
@@ -17,23 +17,25 @@ mixin template Copy() {
         import std.meta;
         import std.traits;
         import dali.copy.annotations;
-        static if (!is(Self: Copyable!Self)) {
-            private Copyable!Self ___copy_subtype = new CopyableClass!Self();
-            alias ___copy_subtype this;
+        static if (!is(Self: Copyable!Self)) { //todo: look for already existing alias this
+            private Copyable!Self ___dali_Copy_supertype = new CopyableClass!Self();
+            alias ___dali_Copy_supertype this;
+
         }
 
         Self copy(){
+            import dali.utils.daliconstants;
+            import dali.utils.typedescriptor;
+            import std.meta;
             static if (__traits(compiles, new Self())) {
                 Self result = new Self();
             } else {
-                alias factories = getSymbolsByUDA!(Self, CopyFactory);
-                static assert(__traits(compiles, factories.length));
-                static assert(factories.length == 1);
-                static assert(__traits(compiles, factories[0]()));
-                Self result = factories[0]();
+                alias factory = Descriptor!Self.annotatedMethod!CopyFactory;
+                Self result = factory.targetMethod();
             }
-            static foreach (name; FieldNameTuple!Self)
+            static foreach (name; Filter!(templateNot!IsDaliInternalField, FieldNameTuple!Self)) {
                 mixin("result."~name~" = this."~name~";");
+            }
             return result;
         }
 

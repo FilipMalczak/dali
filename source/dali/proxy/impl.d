@@ -10,9 +10,6 @@ template method(alias Scope, string methodName, ArgTypes...){
 
     template chooseMethod(int chooseMethod___i){
         static if (chooseMethod___i<allMethodsWithThatName.length){
-            pragma(msg, "i ", chooseMethod___i);
-            pragma(msg, "args ", ArgTypes);
-            pragma(msg, "current ", Parameters!(allMethodsWithThatName[chooseMethod___i]));
             static if (is(Parameters!(allMethodsWithThatName[chooseMethod___i]) == AliasSeq!ArgTypes)){
                 alias chooseMethod = allMethodsWithThatName[chooseMethod___i];
             } else {
@@ -97,8 +94,8 @@ version(unittest){
 
 unittest {
     import std.stdio;
-    writeln(Arguments!(ToIntercept, "foo").builder().build());
-    writeln(Arguments!(ToIntercept, "foo", int).builder().build());
-    writeln(Arguments!(ToIntercept, "foo", string, bool).builder().build());
+    //writeln(Arguments!(ToIntercept, "foo").builder().build());
+    //writeln(Arguments!(ToIntercept, "foo", int).builder().build());
+    //writeln(Arguments!(ToIntercept, "foo", string, bool).builder().build());
 
 }

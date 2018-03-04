@@ -1,6 +1,6 @@
 module dali.constructors.mixins;
 
-mixin template NoArgConstructor() {
+mixin template NoArgsConstructor() {
     import dali.utils.typedescriptor;
     import dali.constructors.annotations;
     import std.traits;

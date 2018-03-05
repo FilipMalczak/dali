@@ -82,9 +82,14 @@ interface Interceptor(Target, string methodName, ArgTypes...){
 version(unittest){
 
     struct StructToIntercept {
+        private int x;
+
         void foo(int i){}
 
-        string foo(){return "1";}
+        string foo(){
+            import std.conv;
+            return "1"~to!string(x);
+        }
 
         string foo(string x, bool b){return x~(b? "T":"F")~"2";}
     }
@@ -128,6 +133,8 @@ struct Interceptors(T){
     Interceptor!(T, methodName, ArgTypes)[] registered(string methodName, ArgTypes...)(){
         import std.conv;
         auto mangled = mangledName!(MethodDescriptor!(T, methodName, ArgTypes).targetMethod);
+        if ((mangled in backend)==null)
+            return [];
         return cast(Interceptor!(T, methodName, ArgTypes)[]) (backend[mangled]);
     }
 }
@@ -165,7 +172,6 @@ mixin template _ProxyBody(T) {
 }
 
 template Proxy(T){
-    //todo: add constructors
     //todo: add constructor interceptors
 
     //todo: wrap fields with properties
@@ -174,10 +180,18 @@ template Proxy(T){
     static if (is(T == class)){
         class Proxy {
             mixin _ProxyBody!T;
+
+            this(A...)(A args) if (__traits(compiles, new T(args))) {
+                ___dali_proxy_target = new T(args);
+            }
         }
     } else static if (is(T == struct)){
         struct Proxy {
             mixin _ProxyBody!T;
+
+            this(A...)(A args) if (__traits(compiles, T(args))) {
+                ___dali_proxy_target = T(args);
+            }
         }
     } else {
         static assert(false);
@@ -185,7 +199,8 @@ template Proxy(T){
 }
 
 unittest {
-    auto intercepted = Proxy!(StructToIntercept)();
+    auto intercepted = Proxy!(StructToIntercept)(2);
     intercepted.interceptors.add(new PrefixingInterceptor());
     assert(intercepted.foo("a", 1) == "_resultPrefix::_paramPrefix_aT2");
+    assert(intercepted.foo() == "12");
 }

@@ -131,6 +131,28 @@ struct Descriptor(T){
     }
 }
 
+struct ConstructorDescriptor(T, ArgTypes...){
+    template exists(){
+        ArgTypes a;
+        static if (is(T == class)){
+            enum exists = __traits(compiles, new T(a));
+        } else static if (is(T == struct)) {
+            enum exists = __traits(compiles, T(a));
+        } else
+            static assert(false);
+    }
+
+    static T call(ArgTypes args){
+        static if (is(T==class)){
+            return new T(args);
+        } else {
+            return T(args);
+        }
+    }
+
+    alias argTypes = ArgTypes;
+    alias returnType = T;
+}
 
 struct MethodDescriptor(T, string methodName, ArgTypes...) {
     import std.traits;
@@ -159,14 +181,16 @@ struct MethodDescriptor(T, string methodName, ArgTypes...) {
     }
 
     enum argNames = [ ParameterIdentifierTuple!targetMethod ];
-    alias argTypes = Parameters!targetMethod;
+    alias argTypes = AliasSeq!(ArgTypes);
 
     enum declaration = fullyQualifiedName!(returnType)~" "~methodName~"("~typedParameterList~")";
 
-    enum _typedParam(size_t i) = fullyQualifiedName!(argTypes[i])~" "~argNames[i];
+    enum typedParam(size_t i) = fullyQualifiedName!(argTypes[i])~" "~argNames[i];
 
-    enum typedParameterList = join(cast(string[]) [staticMap!(_typedParam, aliasSeqOf!(iota(argNames.length)))], ", ");
+    enum typedParameterList = join(cast(string[]) [staticMap!(typedParam, aliasSeqOf!(iota(argNames.length)))], ", ");
 
     enum paramNameList = join(cast(string[]) argNames, ", ");
     enum paramTypeList = join(cast(string[]) [staticMap!(fullyQualifiedName, argTypes)], ", ");
+
+    enum isProperty = functionAttributes!targetMethod & FunctionAttribute.property;
 }

@@ -5,7 +5,7 @@ import std.string;
 
 import dali.tostring.annotations;
 @(ToStringOptions.builder().fieldTypes(true).qualifiedFieldTypes(false).build())
-struct Arguments(alias Scope, string methodName, ArgTypes...){
+struct Arguments(alias Scope, string methodName, ArgTypes...) if (!MethodDescriptor!(Scope, methodName, ArgTypes).isProperty){
     import std.meta: Alias;
     import std.traits: isArray, isAssociativeArray, fullyQualifiedName;
     import dali.tostring.mixins;
@@ -42,7 +42,7 @@ template InterceptorChain(Target, string methodName, ArgTypes...){
     alias InterceptorChain = Alias!(MethodDescriptor!(Target, methodName, ArgTypes).returnType delegate(Arguments!(Target, methodName, ArgTypes)));
 }
 
-InterceptorChain!(Target, methodName, ArgTypes) bindMethodWithObject(Target, string methodName, ArgTypes...)(Target obj){
+InterceptorChain!(Target, methodName, ArgTypes) bindMethodWithObject(Target, string methodName, ArgTypes...)(Target obj) if (!MethodDescriptor!(Target, methodName, ArgTypes).isProperty){
     import std.algorithm.iteration;
     alias argsType = Arguments!(Target, methodName, ArgTypes);
     mixin("return ("~fullyQualifiedName!(argsType)~" a) => obj."~methodName~"("~join(map!((n) => "a."~n)(cast(string[]) MethodDescriptor!(Target, methodName, ArgTypes).argNames), ", ")~");");
@@ -54,7 +54,7 @@ InterceptorChain!(Target, methodName)
     pushInterceptor(Target, string methodName)(
         InterceptorChain!(Target, methodName) chain,
         Interceptor!(Target, methodName) interceptor
-    ){
+    ) if (!MethodDescriptor!(Target, methodName, AliasSeq!()).isProperty){
     import std.meta;
     return pushInterceptor!(Target, methodName, AliasSeq!())(chain, interceptor);
 }
@@ -63,15 +63,15 @@ InterceptorChain!(Target, methodName)
 
 MethodDescriptor!(Target, methodName, ArgTypes).returnType delegate(Arguments!(Target, methodName, ArgTypes))
 //MethodDescriptor!(Target, methodName, ArgTypes).returnType delegate(Arguments!(Target, methodName, ArgTypes))
-    pushInterceptor(Target, string methodName, ArgTypes...)(
+    pushInterceptor(Target, string methodName, ArgTypes...) (
         //InterceptorChain!(Target, methodName) chain,
         MethodDescriptor!(Target, methodName, ArgTypes).returnType delegate(Arguments!(Target, methodName, ArgTypes)) chain,
         Interceptor!(Target, methodName, ArgTypes) interceptor
-    ){
+    ) if (!MethodDescriptor!(Target, methodName, ArgTypes).isProperty){
     return (Arguments!(Target, methodName, ArgTypes) a) => interceptor.intercept(chain, a);
 }
 
-interface Interceptor(Target, string methodName, ArgTypes...){
+interface Interceptor(Target, string methodName, ArgTypes...) if (!MethodDescriptor!(Target, methodName, ArgTypes).isProperty){
     alias Chain = InterceptorChain!(Target, methodName, ArgTypes);
     alias Args = Arguments!(Target, methodName, ArgTypes);
     alias ResultType = MethodDescriptor!(Target, methodName, ArgTypes).returnType;
@@ -130,7 +130,7 @@ struct Interceptors(T){
         backend[mangled] ~= [ interceptor ];
     }
 
-    Interceptor!(T, methodName, ArgTypes)[] registered(string methodName, ArgTypes...)(){
+    Interceptor!(T, methodName, ArgTypes)[] registered(string methodName, ArgTypes...)() if (!MethodDescriptor!(T, methodName, ArgTypes).isProperty){
         import std.conv;
         auto mangled = mangledName!(MethodDescriptor!(T, methodName, ArgTypes).targetMethod);
         if ((mangled in backend)==null)
@@ -161,10 +161,12 @@ mixin template _ProxyBody(T) {
     }
 
     private mixin template _methodBody(alias desc){
-        static if (is(desc.returnType == void)){
-            mixin(desc.declaration~" { ___dali_proxy_dispatch!(\""~desc.name~"\", "~desc.paramTypeList~")("~desc.paramNameList~"); }");
-        } else {
-            mixin(desc.declaration~" { return ___dali_proxy_dispatch!(\""~desc.name~"\", "~desc.paramTypeList~")("~desc.paramNameList~"); }");
+        static if (!desc.isProperty) {
+            static if (is(desc.returnType == void)){
+                mixin(desc.declaration~" { ___dali_proxy_dispatch!(\""~desc.name~"\", "~desc.paramTypeList~")("~desc.paramNameList~"); }");
+            } else {
+                mixin(desc.declaration~" { return ___dali_proxy_dispatch!(\""~desc.name~"\", "~desc.paramTypeList~")("~desc.paramNameList~"); }");
+            }
         }
     }
 

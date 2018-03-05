@@ -31,33 +31,52 @@ struct Arguments(alias Scope, string methodName, ArgTypes...){
 
     mixin ToString;
     mixin Builder;
-    //mixin AllArgsConstructor;
+    //mixin AllArgsConstructor; //todo
 }
 
 import std.traits;
 import dali.utils.typedescriptor;
 
 template InterceptorChain(Target, string methodName, ArgTypes...){
-    alias InterceptorChain = MethodDescriptor!(Target, methodName, ArgTypes).returnType delegate(Arguments!(Target, methodName, ArgTypes));
+    import std.meta;
+    alias InterceptorChain = Alias!(MethodDescriptor!(Target, methodName, ArgTypes).returnType delegate(Arguments!(Target, methodName, ArgTypes)));
 }
 
-InterceptorChain!(Target, methodName, ArgTypes) bindMethodWithObject(alias Target, string methodName, ArgTypes...)(Target obj){
+InterceptorChain!(Target, methodName, ArgTypes) bindMethodWithObject(Target, string methodName, ArgTypes...)(Target obj){
     import std.algorithm.iteration;
-    mixin("return (a) => obj."~methodName~"("~join(map!((n) => "a."~n)(MethodDescriptor!(Target, methodName, ArgTypes).argNames), ", ")~");");
+    alias argsType = Arguments!(Target, methodName, ArgTypes);
+    mixin("return ("~fullyQualifiedName!(argsType)~" a) => obj."~methodName~"("~join(map!((n) => "a."~n)(cast(string[]) MethodDescriptor!(Target, methodName, ArgTypes).argNames), ", ")~");");
 }
 
-template pushInterceptor(alias Target, string methodName, ArgTypes...){
-    InterceptorChain!(Target, methodName, ArgTypes) pushInterceptor(InterceptorChain!(Target, methodName, ArgTypes) chain, Interceptor!(Target, methodName, ArgTypes) interceptor){
-        return (a) => interceptor.intercept(chain, a);
-    }
+//this is here because the compiler seems to complain if  for no-arg method - it looks for pushInterceptor!(T, m) and can't
+//match empty varargs template argument, so we manually tell it that in such case pushInterceptor!(T, m) = pushInterceptor!(T, m, [])
+InterceptorChain!(Target, methodName)
+    pushInterceptor(Target, string methodName)(
+        InterceptorChain!(Target, methodName) chain,
+        Interceptor!(Target, methodName) interceptor
+    ){
+    import std.meta;
+    return pushInterceptor!(Target, methodName, AliasSeq!())(chain, interceptor);
 }
 
-interface Interceptor(alias Target, string methodName, ArgTypes...){
+//todo: understand why commented lines won't work, while uncommented work perfectly oO and why the hell it works above? oO
+
+MethodDescriptor!(Target, methodName, ArgTypes).returnType delegate(Arguments!(Target, methodName, ArgTypes))
+//MethodDescriptor!(Target, methodName, ArgTypes).returnType delegate(Arguments!(Target, methodName, ArgTypes))
+    pushInterceptor(Target, string methodName, ArgTypes...)(
+        //InterceptorChain!(Target, methodName) chain,
+        MethodDescriptor!(Target, methodName, ArgTypes).returnType delegate(Arguments!(Target, methodName, ArgTypes)) chain,
+        Interceptor!(Target, methodName, ArgTypes) interceptor
+    ){
+    return (Arguments!(Target, methodName, ArgTypes) a) => interceptor.intercept(chain, a);
+}
+
+interface Interceptor(Target, string methodName, ArgTypes...){
     alias Chain = InterceptorChain!(Target, methodName, ArgTypes);
     alias Args = Arguments!(Target, methodName, ArgTypes);
     alias ResultType = MethodDescriptor!(Target, methodName, ArgTypes).returnType;
 
-    ResultType intercept(ResultType delegate(Args) interceptorChainTail, Args args);
+    ResultType intercept(Chain interceptorChainTail, Args args);
 }
 
 version(unittest){
@@ -78,7 +97,7 @@ version(unittest){
             return "_resultPrefix::"~chain(args);
         }
 
-        //mixin NoArgsConstructor;
+        //mixin NoArgsConstructor; //todo
     }
 }
 
@@ -92,4 +111,81 @@ unittest {
     PrefixingInterceptor interceptor = new PrefixingInterceptor();
     auto intercepted = pushInterceptor!(StructToIntercept, "foo", string, bool)(adapted, interceptor);
     assert(intercepted(args) == "_resultPrefix::_paramPrefix_aT2");
+}
+
+struct Interceptors(T){
+    alias descriptor = Descriptor!T;
+
+    private void[][string] backend;
+
+    void add(string methodName, ArgTypes...)(Interceptor!(T, methodName, ArgTypes) interceptor){
+        auto mangled = mangledName!(MethodDescriptor!(T, methodName, ArgTypes).targetMethod);
+        if ((mangled in backend)==null)
+            backend[mangled] = [];
+        backend[mangled] ~= [ interceptor ];
+    }
+
+    Interceptor!(T, methodName, ArgTypes)[] registered(string methodName, ArgTypes...)(){
+        import std.conv;
+        auto mangled = mangledName!(MethodDescriptor!(T, methodName, ArgTypes).targetMethod);
+        return cast(Interceptor!(T, methodName, ArgTypes)[]) (backend[mangled]);
+    }
+}
+
+mixin template _ProxyBody(T) {
+    private T ___dali_proxy_target;
+
+    Interceptors!(T) interceptors;
+
+    private MethodDescriptor!(T, name, Args).returnType ___dali_proxy_dispatch(string name, Args...)(Args args){
+        auto chainEnd = bindMethodWithObject!(T, name, Args)(___dali_proxy_target);
+        auto chainHead = chainEnd;
+        foreach (interceptor; interceptors.registered!(name, Args)())
+            chainHead = pushInterceptor!(T, name, Args)(
+                cast(InterceptorChain!(T, name, Args)) chainHead,
+                //cast(MethodDescriptor!(T, name, Args).returnType delegate(Arguments!(T, name, Args))) chainHead,
+                cast(Interceptor!(T, name, Args)) interceptor
+            );
+        static if (is(MethodDescriptor!(T, name, Args).returnType == void)){
+            chainHead(Arguments!(T, name, Args)(args));
+        } else {
+            return chainHead(Arguments!(T, name, Args)(args));
+        }
+    }
+
+    private mixin template _methodBody(alias desc){
+        static if (is(desc.returnType == void)){
+            mixin(desc.declaration~" { ___dali_proxy_dispatch!(\""~desc.name~"\", "~desc.paramTypeList~")("~desc.paramNameList~"); }");
+        } else {
+            mixin(desc.declaration~" { return ___dali_proxy_dispatch!(\""~desc.name~"\", "~desc.paramTypeList~")("~desc.paramNameList~"); }");
+        }
+    }
+
+    mixin Descriptor!T.forEachMethod!_methodBody;
+}
+
+template Proxy(T){
+    //todo: add constructors
+    //todo: add constructor interceptors
+
+    //todo: wrap fields with properties
+    //todo: check how properties work
+    //todo: wrap it up, make sure that we have property interceptors that work both on fields and properties
+    static if (is(T == class)){
+        class Proxy {
+            mixin _ProxyBody!T;
+        }
+    } else static if (is(T == struct)){
+        struct Proxy {
+            mixin _ProxyBody!T;
+        }
+    } else {
+        static assert(false);
+    }
+}
+
+unittest {
+    auto intercepted = Proxy!(StructToIntercept)();
+    intercepted.interceptors.add(new PrefixingInterceptor());
+    assert(intercepted.foo("a", 1) == "_resultPrefix::_paramPrefix_aT2");
 }

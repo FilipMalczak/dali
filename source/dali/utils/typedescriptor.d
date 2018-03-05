@@ -101,22 +101,51 @@ struct Descriptor(T){
         enum annotatedMethod = MethodDescriptor!(T, __traits(identifier, allNamed[0]), Parameters!(allNamed[0]))();
     }
 
-    template constructors(){
-        //alias constructors = methods!"__ctor";
-        alias constructors = methods!"this";
+    mixin template forEachMethod(alias ToMixinWithDescriptor) {
+        import std.traits;
+        import std.meta;
+        static if (is(T == struct) || is(T == class)){
+            enum allMembers = [__traits(allMembers, T)];
+            mixin template _forEachImpl(size_t ___i){
+                static if (___i < allMembers.length){
+                    enum member = allMembers[___i];
+                    static if (__traits(compiles, __traits(getOverloads, T, member))){
+                        import std.traits;
+                        import std.meta;
+                        alias overloads = AliasSeq!(__traits(getOverloads, T, member));
+                        mixin template _iterOverloads(size_t ___j){
+                            static if (___j < overloads.length){
+                                alias desc = MethodDescriptor!(T, __traits(identifier, overloads[___j]), Parameters!(overloads[___j]));
+                                mixin ToMixinWithDescriptor!(desc);
+                                mixin _iterOverloads!(___j+1);
+                            }
+                        }
+                        mixin _iterOverloads!0;
+                    }
+                    mixin _forEachImpl!(___i+1);
+                }
+            }
+            mixin _forEachImpl!(0);
+        } else
+            static assert(false);
     }
-
-    //enum allArgsConstructor = Select!(__traits(compiles, MethodDescriptor!(T, "__ctor", fieldTypes)), MethodDescriptor!(T, "__ctor", fieldTypes), void);
 }
+
 
 struct MethodDescriptor(T, string methodName, ArgTypes...) {
     import std.traits;
     import std.meta;
+    import std.range;
+    import std.array;
+
+    alias name = methodName;
 
     alias targetMethod = MethodDescriptor!(T, methodName, ArgTypes).getTargetMethod!();
 
     template forObject(alias t){
-        alias forObject = Filter!(parameterTypeMatcher!ArgTypes, __traits(getOverloads, t, methodName))[0];
+        alias filtered = Filter!(parameterTypeMatcher!ArgTypes, __traits(getOverloads, t, methodName));
+        static assert(__traits(compiles, filtered.length) && filtered.length == 1);
+        alias forObject = filtered[0];
     }
 
     alias returnType = ReturnType!targetMethod;
@@ -131,4 +160,13 @@ struct MethodDescriptor(T, string methodName, ArgTypes...) {
 
     enum argNames = [ ParameterIdentifierTuple!targetMethod ];
     alias argTypes = Parameters!targetMethod;
+
+    enum declaration = fullyQualifiedName!(returnType)~" "~methodName~"("~typedParameterList~")";
+
+    enum _typedParam(size_t i) = fullyQualifiedName!(argTypes[i])~" "~argNames[i];
+
+    enum typedParameterList = join(cast(string[]) [staticMap!(_typedParam, aliasSeqOf!(iota(argNames.length)))], ", ");
+
+    enum paramNameList = join(cast(string[]) argNames, ", ");
+    enum paramTypeList = join(cast(string[]) [staticMap!(fullyQualifiedName, argTypes)], ", ");
 }

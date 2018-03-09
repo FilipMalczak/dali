@@ -170,7 +170,7 @@ mixin template _ProxyBody(T) {
         }
     }
 
-    mixin Descriptor!T.forEachMethod!_methodBody;
+    mixin forEachMethodMixin!(T, _methodBody);
 }
 
 template Proxy(T){
